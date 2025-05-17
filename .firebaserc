@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "kost-oren-kpri-sekawan",
+    "production": "kost-oren-kpri-sekawan",
+    "staging": "iot-kosorenbot-waterlevel"
+  },
+  "targets": {},
+  "etags": {}
+}
