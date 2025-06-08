@@ -32,8 +32,8 @@ bot.onText(/\/GetData/, async (msg) => {
       return;
     }
 
-    const Htank = 26.0; // cm
-    const radius = 13.5; // cm
+    const Htank = 122.0; // cm
+    const radius = 50; // cm
     const pi = 3.1416;
 
     const H_water = Htank - snapshot.val();
