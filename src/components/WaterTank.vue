@@ -15,14 +15,15 @@ import WaterLevel from "./WaterLevel.vue";
 
 export default {
   components: { WaterLevel },
+  props: ["updateWaterCapacity"], // Kirim nilai C_water ke DashboardView.vue
   data() {
     return {
       waterHeight: 50, // Default percentage
       H_water: 0,
       V_water: 0,
-      Htank: 26.0, // cm
+      Htank: 122.0, // cm
       pi: 3.1416,
-      radius: 13.5 // cm
+      radius: 50 // cm
     };
   },
   created() {
@@ -34,14 +35,11 @@ export default {
         const C_water = (this.H_water / this.Htank) * 100;
         this.V_water = (this.pi * Math.pow(this.radius, 2) * this.H_water) / 1000;
         this.waterHeight = parseFloat(C_water.toFixed(2));
+        
+        this.$emit("updateWaterCapacity", C_water);
       }
     });
   },
-  // testBot() {
-  //  const chatId = 1305523182;
-  //  sendMessage(chatId, "Tes successfully from Vue.js!")
-  //     .catch(err => console.error("Error sending test message:", err));
-  // },
 };
 </script>
 

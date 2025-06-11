@@ -1,8 +1,4 @@
 <template>
-  <!-- just testing -->
-  <!-- <button @click="showNotification"> Test Notif </button>
-  <notifications/> -->
-
   <div class="dashboard">
     <div class="card timestamp-card">
       <p>🕒 Timestamp</p>
@@ -10,13 +6,13 @@
     </div>
 
     <div class="card water-card">
-      <WaterTank />
+      <WaterTank @updateWaterCapacity="checkWaterLevel" />
     </div>
 
     <div class="card relay-card">
       <label>⚡ Relay Control</label>
       <div class="switch">
-        <input type="checkbox" id="relaySwitch" v-model="relayState" @change="toggleRelay">
+        <input type="checkbox" id="relaySwitch" :checked="relayState" @click="toggleRelay">
         <label for="relaySwitch" class="slider"></label>
       </div>
       <p class="status">{{ relayState ? "ON" : "OFF" }}</p>
@@ -25,36 +21,51 @@
 </template>
 
 <script>
-import { database, ref, onValue } from "../firebase";
+import { database, ref, onValue, set } from "../firebase";
 import WaterTank from "./WaterTank.vue";
-// import { useNotification } from '@kyvg/vue3-notification';
 
 export default {
   components: { WaterTank },
   data() {
     return {
-      timestamp: null, // Data dari Firebase
       formattedTimestamp: "Loading...",
-      relayState: false
+      relayState: false,
+      C_water: 0,
+      relayTriggered: false // Flag untuk mencegah pemicu berulang
     };
   },
   created() {
-    // Referensi ke Firebase path "realtime/timestamps"
-    const timestampRef = ref(database, "realtime/timestamps");
+    const relayRef = ref(database, "realtime/relay");
 
-    onValue(timestampRef, (snapshot) => {
-      const unixTimestamp = snapshot.val();
-      // console.log("🔥 Unix Timestamp dari Firebase:", unixTimestamp);
-      if (unixTimestamp) {
-        this.timestamp = unixTimestamp;
-        this.formattedTimestamp = this.convertUnixToDate(unixTimestamp);
-        // console.log("✅ Timestamp setelah konversi:", this.formattedTimestamp);
+    onValue(relayRef, (snapshot) => {
+      const relayValue = snapshot.val();
+      console.log("🔥 Relay state dari Firebase:", relayValue);
+      if (relayValue !== null) {
+        this.relayState = !relayValue; // Membalik nilai relay untuk UI
       }
     });
+
+    // Mengambil waktu dari sistem pengguna setiap detik
+    this.updateLocalTimestamp();
   },
   methods: {
+    updateLocalTimestamp() {
+      setInterval(() => {
+        const now = new Date();
+        this.formattedTimestamp = this.convertUnixToDate(now.getTime() / 1000);
+        console.log("📅 Timestamp lokal diperbarui:", this.formattedTimestamp);
+
+        // Cek apakah waktu sudah pukul 20:00
+        if (now.getHours() === 21 && now.getMinutes() === 0 && !this.relayTriggered) {
+        console.log("⏰ Waktu sudah 20:00, mengaktifkan relay...");
+        this.triggerRelay();
+        this.relayTriggered = true;
+        }
+      }, 1000); // Update setiap 1 detik
+    },
+
     convertUnixToDate(unix) {
-      const date = new Date(unix * 1000); // Konversi ke milidetik langsung tanpa manipulasi zona waktu
+      const date = new Date(unix * 1000);
       return date.toLocaleString("en-US", {
         weekday: "short",
         year: "numeric",
@@ -67,17 +78,36 @@ export default {
       });
     },
     toggleRelay() {
-      console.log("Relay state:", this.relayState);
+      const newState = !this.relayState;
+      this.relayState = newState;
+
+      const relayRef = ref(database, "realtime/relay");
+      set(relayRef, !newState)
+        .then(() => console.log("✅ Relay state updated in Firebase:", !newState))
+        .catch((error) => console.error("❌ Error updating relay state:", error));
     },
-    // showNotification() {
-    //   const { notify } = useNotification();
-    //   notify({
-    //     title: "Important message",
-    //     text: "Hello user! This is a notification.",
-    //     type: 'success',
-    //     duration: 5000,
-    //   });
-    // }
+    triggerRelay() {
+      const relayRef = ref(database, "realtime/relay");
+      set(relayRef, false)
+        .then(() => console.log("✅ Relay diaktifkan otomatis pada pukul 20:00"))
+        .catch((error) => console.error("❌ Error updating relay state:", error));
+
+      this.relayState = true;
+    },
+    checkWaterLevel(C_water) {
+      this.C_water = C_water;
+      console.log("💧 Kapasitas air:", C_water + "%");
+
+      if (C_water > 90) {
+        console.log("🚨 Air terlalu penuh! Mengaktifkan pompa...");
+        const relayRef = ref(database, "realtime/relay");
+        set(relayRef, true)
+          .then(() => console.log("✅ Relay diaktifkan otomatis karena air penuh"))
+          .catch((error) => console.error("❌ Error updating relay state:", error));
+
+        this.relayState = false;
+      }
+    }
   }
 };
 </script>
@@ -97,12 +127,7 @@ export default {
   box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.15);
   width: 280px;
   text-align: center;
-  /* transition: transform 0.3s ease-in-out; */
 }
-
-/* .card:hover {
-  transform: scale(1.05);
-} */
 
 .water-card {
   display: flex;
@@ -121,7 +146,6 @@ export default {
   font-size: 18px;
 }
 
-/* Switch UI */
 .switch {
   position: relative;
   width: 80px;
